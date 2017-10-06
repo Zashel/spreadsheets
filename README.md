@@ -1,2 +1,4 @@
 # spreadsheets
-Spreadsheet interpreter in Python
+Spreadsheet-like in Python
+
+I'll try not to do any dependency
