@@ -78,4 +78,4 @@ You can assign a Cell not just the value, but another cell.
 
 ### Considerations
 
-the search by [col:row] may be very difficult to aprehend, so it accept [row][col] too.
+The search by [col:row] may be very difficult to aprehend, so it accepts [row][col] too.
