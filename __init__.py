@@ -13,16 +13,21 @@ def sub_slices(*args):
     assert all([isinstance(arg, slice) for arg in args])
     return reduce(lambda x, y: slice(x.start-y.start, x.stop-y.stop), args)
 
-class _RelativeCell:
+class _Relatives:
+    pass
+
+class _RelativeCell(_Relatives):
     def __init__(self, coordinates):
+        _Relatives.__init__(self)
         self.coordinates = coordinates
 
     def __call__(self, cell):
         assert isinstance(cell, Cell)
         return cell.spreadsheet.__getitem__(sum_slices(cell.coordinates, self.coordinates))
 
-class _RelativeCells:
+class _RelativeCells(_Relatives):
     def __init__(self, coordinates):
+        _Relatives.__init__(self)
         self.coordinates = coordinates
 
     def __call__(self, cell):
@@ -30,6 +35,30 @@ class _RelativeCells:
         start = self.coordinates.start(cell).coordinates
         stop = self.coordinates.stop(cell).coordinates
         return cell.spreadsheet.subslice(start, stop)
+
+class _RelativeColumns(_Relatives):
+    def __init__(self, coordinates):
+        _Relatives.__init__(self)
+        assert isinstance(coordinates, slice)
+        self.coordinates = coordinates
+
+    def __call__(self, cell):
+        assert isinstance(cell, Cell)
+        start = cell.coordinates.start + self.coordinates.start
+        stop = cell.coordinates.start + self.coordinates.stop
+        return cell.spreadsheet.Columns[start, stop]
+
+class _RelativeRows(_Relatives):
+    def __init__(self, coordinates):
+        _Relatives.__init__(self)
+        assert isinstance(coordinates, slice)
+        self.coordinates = coordinates
+
+    def __call__(self, cell):
+        assert isinstance(cell, Cell)
+        start = cell.coordinates.stop + self.coordinates.start
+        stop = cell.coordinates.stop + self.coordinates.stop
+        return cell.spreadsheet.Rows[start, stop]
 
 class _Relative:
     class Cell:
@@ -41,9 +70,19 @@ class _Relative:
             assert isinstance(item, slice)
             assert all([isinstance(i, _RelativeCell) for i in (item.start, item.stop)])
             return _RelativeCells(item)
+    class Columns:
+        def __getitem__(self, item):
+            assert isinstance(item, slice)
+            return _RelativeColumns(item)
+    class Rows:
+        def __getitem__(self, item):
+            assert isinstance(item, slice)
+            return _RelativeRows(item)
 
 RelativeCell = _Relative.Cell()
 RelativeCells = _Relative.Cells()
+Relativecolumns = _Relative.Columns()
+RelativeRows = _Relative.Rows()
 
 class Spreadsheet(list):
     """
@@ -117,10 +156,9 @@ class Spreadsheet(list):
                 if isinstance(coordinates, slice):
                     for x in range(coordinates.start, coordinates.stop+1):
                         final.append(self.spreadsheet[x])
-                    return Rows(self.spreadsheet, final)
+                    return Spreadsheet(final)
                 else:
                     raise CoordinatesError("Coordinates may be slices with the form [first row:last row]")
-
         return RowsGenerator(self)
 
     def append(self, item):
@@ -156,20 +194,20 @@ class Spreadsheet(list):
     def to_sylk(self):
         pass
 
-class Columns(list):
+class Columns(Spreadsheet):
     """
     Column Class to Spreadsheet
     """
     def __init__(self, spreadsheet, *args, **kwargs):
         self._spreadsheet = spreadsheet
-        list.__init__(self, *args, **kwargs)
+        Spreadsheet.__init__(self, *args, **kwargs)
 
     @property
     def spreadsheet(self):
         return self._spreadsheet
 
     def __sylk__(self):
-        return b""
+        return
 
     def __csv__(self):
         pass
