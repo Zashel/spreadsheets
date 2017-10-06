@@ -1,3 +1,4 @@
+import datetime
 from functools import reduce
 
 class CoordinatesError(Exception): pass
@@ -18,7 +19,6 @@ class _RelativeCell:
 
     def __call__(self, cell):
         assert isinstance(cell, Cell)
-        input(cell.coordinates)
         return cell.spreadsheet.__getitem__(sum_slices(cell.coordinates, self.coordinates))
 
 class _RelativeCells:
@@ -237,6 +237,9 @@ class Cell:
     def __init__(self, spreadsheet, value):
         object.__setattr__(self, "_spreadsheet", spreadsheet)
         object.__setattr__(self, "_value", value)
+        object.__setattr__(self, "_coordinates", {"time": datetime.datetime.now() - \
+                                                          datetime.timedelta(seconds=10),
+                                                  "slice": None})
 
     def __getattribute__(self, item):
         if item in ("coordinates", "spreadsheet", "value"):
@@ -252,15 +255,22 @@ class Cell:
 
     @property
     def coordinates(self):
-        for index, row in enumerate(self.spreadsheet):
-            try:
-                column = row.index(self)
-            except ValueError:
-                pass
+        coordinates = object.__getattribute__(self, "_coordinates")
+        if coordinates["time"] < datetime.datetime.now():
+            for index, row in enumerate(self.spreadsheet):
+                try:
+                    column = row.index(self)
+                except ValueError:
+                    pass
+                else:
+                    object.__getattribute__(self, "_coordinates")["slice"] = slice(column, index)
+                    object.__getattribute__(self, "_coordinates")["time"] = datetime.datetime.now() + \
+                                                                           datetime.timedelta(seconds=0.001)
+                    return slice(column, index)
             else:
-                return slice(column, index)
+                raise IndexError("Coordinates not found")
         else:
-            raise IndexError("Corrdinates not found")
+            return object.__getattribute__(self, "_coordinates")["slice"]
 
     @property
     def spreadsheet(self):
