@@ -249,7 +249,12 @@ class Rows(list):
                     self[key] = None
                     start = value.coordinates
                     self[key].value = RelativeCell.__getitem__(sub_slices(start, self[key].coordinates))
-                    print("Vamos por aqui ", object.__getattribute__(self[key], "_value"))
+                elif isinstance(value, str) and value.startswith("="):
+                    value = value[1:].lower()
+                    functions = re.findall(r"([a-z_]+)\(", value)
+                    if len(functions) == 0:
+                        coord = get_coordinates_by_name(value)
+                        self[key].value = RelativeCell.__getitem__(sub_slices(coord, self[key].coordinates))
                 else:
                     self[key].value = value
         elif isinstance(key, slice):
@@ -346,12 +351,16 @@ class Function:
     """
     Function Class for Cells
     """
-    def __init__(self, cell, value):
+    def __init__(self, cell, function):
         self._cell = cell
-        self._value = value
+        self._function = function
 
     def __sylk__(self):
         pass
 
     def __csv__(self):
         pass
+
+
+class Functions:
+    pass
