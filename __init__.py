@@ -1,4 +1,5 @@
 import datetime
+import re
 from functools import reduce
 
 class CoordinatesError(Exception): pass
@@ -12,6 +13,15 @@ def sub_slices(*args):
     assert len(args) >= 1
     assert all([isinstance(arg, slice) for arg in args])
     return reduce(lambda x, y: slice(x.start-y.start, x.stop-y.stop), args)
+
+def get_coordinates_by_name(name):
+    name = name.upper()
+    columns = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    col, row = re.findall(r"([A-Z]+)([0-9]+)", name)[0]
+    final_col = int()
+    for index, iter in enumerate(range(len(col)-1, -1, -1)):
+        final_col += (pow((len(columns)), index))*(columns.index(col[iter])+1)
+    return slice(final_col-1, int(row)-1)
 
 class _Relatives:
     pass
@@ -101,6 +111,9 @@ class Spreadsheet(list):
         """
         if isinstance(item, slice):
             return list.__getitem__(self, item.stop)[item.start]
+        elif isinstance(item, str):
+            coord = get_coordinates_by_name(item)
+            return list.__getitem__(self, coord.stop)[coord.start]
         return list.__getitem__(self, item)
 
     def __setitem__(self, key, item):
