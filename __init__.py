@@ -125,6 +125,9 @@ class Spreadsheet(list):
         """
         if isinstance(key, slice):
             self[key.stop][key.start] = item
+        elif isinstance(key, str):
+            coord = get_coordinates_by_name(key)
+            self[coord.stop][coord.start] = item
 
     def __sylk__(self):
         return b""
