@@ -4,6 +4,17 @@ from functools import reduce
 
 class CoordinatesError(Exception): pass
 
+def sylk(item):
+    """
+    Gives the sylk representation of an object
+    :param item: item to get the sylk representation of
+    :return: sylk representation of item
+    """
+    if hasattr(item, "__sylk__"):
+        return item.__sylk__()
+    else:
+        return item.__repr__()
+
 def sum_slices(*args):
     assert len(args) >= 1
     assert all([isinstance(arg, slice) for arg in args])
@@ -98,6 +109,7 @@ class Spreadsheet(list):
     """
     Spreadsheetclass to form Excel spreadsheets 12 in Sylk format
     """
+    functions = dict()
     def __init__(self, data=None):
         list.__init__(self)
         if data is not None:
@@ -238,7 +250,7 @@ class Rows(list):
             iterable = list()
         list.__init__(self, [isinstance(arg, Cell) and arg or Cell(spreadsheet, arg) for arg in iterable])
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value): #Set verify function
         if isinstance(key, int):
             if key >= len(self):
                 for x in range(len(self), key+1):
@@ -251,10 +263,21 @@ class Rows(list):
                     self[key].value = RelativeCell.__getitem__(sub_slices(start, self[key].coordinates))
                 elif isinstance(value, str) and value.startswith("="):
                     value = value[1:].lower()
-                    functions = re.findall(r"([a-z_]+)\(", value)
+                    functions = re.findall(r"([a-z_\.]+)\(", value)
                     if len(functions) == 0:
                         coord = get_coordinates_by_name(value)
                         self[key].value = RelativeCell.__getitem__(sub_slices(coord, self[key].coordinates))
+                    else:
+                        for f in functions:
+                            if f not in Spreadsheet.functions:
+                                Spreadsheet.functions[f] = Function(f)
+                        value = re.sub(r"([a-z_\.]+)\(", lambda x: "Spreadsheet.functions[\"{}\"](".format(x.group(0).strip("(")), value)
+                        self[key].value = dict()
+                        self[key].value["value"] = value
+                        repr = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)", lambda x: x.group(0)+".__repr__()", value)
+                        self[key].value["repr"] = repr
+                        self[key].value["sylk"] = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)", lambda x: "sylk("+x.group(0)+")", value)
+                        self[key].value["eval"] = str(eval(repr)) #TODO Access direactly to "_value"
                 else:
                     self[key].value = value
         elif isinstance(key, slice):
@@ -280,7 +303,7 @@ class Rows(list):
     def append(self, item):
         if not any([isinstance(item, typo) for typo in (list, tuple)]):
             item = [item]
-        [list.append(self, isinstance(i, Cell) and i or Cell(self.spreadsheet, i)) for i in item]
+        [list.append(self, isinstance(i, Cell) and i or Cell(self.spreadsheet, i)) for i in item] #TODO as before
 
     def extend(self, items):
         if any([isinstance(items, typo) for typo in (list, tuple)]):
@@ -312,6 +335,11 @@ class Cell:
     def __repr__(self):
         return str(self.value.__repr__())
 
+    def __sylk__(self):
+        value = object.__getattribute__(self, "_value")
+        if isinstance(value, dict) and "sylk" in value:
+            return value["sylk"]
+
     @property
     def coordinates(self):
         coordinates = object.__getattribute__(self, "_coordinates")
@@ -340,6 +368,9 @@ class Cell:
         to_return = object.__getattribute__(self, "_value")
         if isinstance(to_return, _RelativeCell):
             return object.__getattribute__(to_return(self), "_value")
+        elif isinstance(to_return, dict) and "eval" in to_return:
+            print(to_return["eval"])
+            return eval(to_return["eval"])
         else:
             return to_return
 
@@ -347,13 +378,34 @@ class Cell:
     def value(self, value):
         object.__setattr__(self, "_value", value) #TODO -> Check what Instantiate (Item or Function)
 
+
 class Function:
     """
     Function Class for Cells
     """
-    def __init__(self, cell, function):
-        self._cell = cell
+    def __init__(self, function):
         self._function = function
+
+    @property
+    def function(self):
+       return self._function
+
+    def __call__(self, *args, **kwargs):
+        class callable:
+            def __init__(self, function, *args, **kwrags):
+                self.function = function
+                self.args = args
+                self.kwargs = kwargs
+
+            def __repr__(self):
+                return "Functions.{function}({args})".format(function = self.function,
+                                                             args =  ", ".join([arg.__repr__() for arg in args]+
+                                                                               [key+"="+self.kwargs[key].__repr__() for key in self.kwargs]))
+            def __sylk__(self):
+                return "{function}({args})".format(function = self.function, #TODO Verify semycolon in args
+                                                   args = "; ".join([sylk(arg) for arg in args]+
+                                                                    [key+"="+sylk(self.kwargs[key]) for key in self.kwargs]))
+        return callable(self.function, *args, **kwargs)
 
     def __sylk__(self):
         pass
@@ -363,4 +415,6 @@ class Function:
 
 
 class Functions:
-    pass
+    @staticmethod
+    def sum(*args):
+        return sum(args)
