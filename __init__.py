@@ -195,10 +195,11 @@ class Spreadsheet(list):
         :param item: Item to append to Spreadsheet
         :return: None
         """
-        if any([isinstance(item, typo) for typo in (list, tuple)]):
-            list.append(self, Rows(self, item))
-        else:
-            list.append(self, Rows(self, [item]))
+        row = Rows(self)
+        list.append(self, row)
+        if not any([isinstance(item, typo) for typo in (list, tuple)]):
+            item = [item]
+        row.extend(item)
 
     def extend(self, items):
         """
@@ -240,6 +241,33 @@ class Columns(Spreadsheet):
     def __csv__(self):
         pass
 
+
+def verify(value, coords):
+    if isinstance(value, Cell):
+        start = value.coordinates
+        return RelativeCell.__getitem__(sub_slices(start, coords))
+    elif isinstance(value, str) and value.startswith("="):
+        value = value[1:].lower()
+        functions = re.findall(r"([a-z_\.]+)\(", value)
+        if len(functions) == 0:
+            coord = get_coordinates_by_name(value)
+            return RelativeCell.__getitem__(sub_slices(coord, coords))
+        else:
+            for f in functions:
+                if f not in Spreadsheet.functions:
+                    Spreadsheet.functions[f] = Function(f)
+                value = re.sub(r"([a-z_\.]+)\(", lambda x: "Spreadsheet.functions[\"{}\"](".format(x.group(0).strip("(")), value)
+                new_value = dict()
+                new_value["value"] = value
+                repr = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)", lambda x: x.group(0)+".__repr__()", value)
+                new_value["repr"] = repr
+                new_value["sylk"] = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)", lambda x: "sylk("+x.group(0)+")", value)
+                new_value["eval"] = str(eval(repr))
+                return new_value
+    else:
+        return value
+
+
 class Rows(list):
     """
     Row class to Spreadsheet
@@ -248,47 +276,26 @@ class Rows(list):
         self._spreadsheet = spreadsheet
         if iterable is None:
             iterable = list()
-        list.__init__(self, [isinstance(arg, Cell) and arg or Cell(spreadsheet, arg) for arg in iterable])
+        list.__init__(self)
+        self.extend(iterable)
 
-    def __setitem__(self, key, value): #Set verify function
+    def __setitem__(self, key, value):
         if isinstance(key, int):
             if key >= len(self):
                 for x in range(len(self), key+1):
-                    self.append(None)
-                self[key] = value
-            else:
-                if isinstance(value, Cell):
-                    self[key] = None
-                    start = value.coordinates
-                    self[key].value = RelativeCell.__getitem__(sub_slices(start, self[key].coordinates))
-                elif isinstance(value, str) and value.startswith("="):
-                    value = value[1:].lower()
-                    functions = re.findall(r"([a-z_\.]+)\(", value)
-                    if len(functions) == 0:
-                        coord = get_coordinates_by_name(value)
-                        self[key].value = RelativeCell.__getitem__(sub_slices(coord, self[key].coordinates))
-                    else:
-                        for f in functions:
-                            if f not in Spreadsheet.functions:
-                                Spreadsheet.functions[f] = Function(f)
-                        value = re.sub(r"([a-z_\.]+)\(", lambda x: "Spreadsheet.functions[\"{}\"](".format(x.group(0).strip("(")), value)
-                        self[key].value = dict()
-                        self[key].value["value"] = value
-                        repr = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)", lambda x: x.group(0)+".__repr__()", value)
-                        self[key].value["repr"] = repr
-                        self[key].value["sylk"] = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)", lambda x: "sylk("+x.group(0)+")", value)
-                        self[key].value["eval"] = str(eval(repr)) #TODO Access direactly to "_value"
-                else:
-                    self[key].value = value
+                    list.append(self, Cell(self.spreadsheet, None))
+            self[key].value = verify(value, self[key].coordinates)
         elif isinstance(key, slice):
             if any([isinstance(value, typo) for typo in (list, tuple)]):
                 if abs(key.stop - key.start) == len(value)-1:
                     for index, x in enumerate(range(key.start, key.stop+1)):
-                        self[x] = value[index]
+                        self[x] = None
+                        self[x].value = self.verify(value[index], self[x].coordinates)
                 else:
                     raise TypeError("you can only assign iterables with the same length of slice")
             else:
                 raise TypeError("you can only assign an iterable")
+
 
     def __sylk__(self):
         pass
@@ -303,7 +310,10 @@ class Rows(list):
     def append(self, item):
         if not any([isinstance(item, typo) for typo in (list, tuple)]):
             item = [item]
-        [list.append(self, isinstance(i, Cell) and i or Cell(self.spreadsheet, i)) for i in item] #TODO as before
+        for i in item:
+            list.append(self, Cell(self.spreadsheet, None))
+            input(self.spreadsheet)
+            self[-1].value = verify(i, self[-1].coordinates)
 
     def extend(self, items):
         if any([isinstance(items, typo) for typo in (list, tuple)]):
