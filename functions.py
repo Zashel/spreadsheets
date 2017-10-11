@@ -53,5 +53,4 @@ class Functions:
     @staticmethod
     @fx
     def sum(*args):
-        print(args)
         return sum(args)

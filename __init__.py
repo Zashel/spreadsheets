@@ -43,7 +43,6 @@ def get_coordinates_by_name(name):
 class _Relatives:
     pass
 
-
 class _RelativeCell(_Relatives):
     def __init__(self, coordinates):
         _Relatives.__init__(self)
@@ -112,6 +111,16 @@ RelativeCells = _Relative.Cells()
 Relativecolumns = _Relative.Columns()
 RelativeRows = _Relative.Rows()
 
+class Range(list):
+    def __init__(self, data, *, start, stop):
+        list.__init__(self, data)
+        self._start = start
+        self._stop = stop
+
+    def __sylk__(self):
+        return ":".join(["R{}C{}".format(i.stop+1, i.start+1)
+                         for i in (self._start, self._stop)])
+
 class Spreadsheet(list):
     """
     Spreadsheetclass to form Excel spreadsheets 12 in Sylk format
@@ -121,9 +130,9 @@ class Spreadsheet(list):
     def __init__(self, data=None, *, name=None):
         list.__init__(self)
         if name is None:
-            self._name = str(len(Spreadsheet.sheets))
+            self.name = str(len(Spreadsheet.sheets))
         else:
-            self._name = name
+            self.name = name
         Spreadsheet.sheets[self.name] = self
         if data is not None:
             self.extend(data)
@@ -153,11 +162,74 @@ class Spreadsheet(list):
             coord = get_coordinates_by_name(key)
             self[coord.stop][coord.start] = item
 
-    def __sylk__(self):
-        return b""
-
-    def __csv__(self):
+    def __copy__(self):
+        #TODO
         pass
+
+    def __sylk__(self):
+        head = ["ID;P;N;E",
+                "P;PGeneral",
+                "F;P0;DG0G10;M300",
+                "P;P0",
+                "P;P0.00",
+                "P;P#,##0",
+                "P;P#,##0.00",
+                "P;P#,##0\ _(0;;\-#,##0\ _(0",
+                "P;P#,##0\ _(0;;[Red]\-#,##0\ _(0",
+                "P;P#,##0.00\ _(0;;\-#,##0.00\ _(0",
+                "P;P#,##0.00\ _(0;;[Red]\-#,##0.00\ _(0",
+                "P;P#,##0\ \"$\";;\-#,##0\ \"$\"",
+                "P;P#,##0\ \"$\";;[Red]\-#,##0\ \"$\"",
+                "P;P#,##0.00\ \"$\";;\-#,##0.00\ \"$\"",
+                "P;P#,##0.00\ \"$\";;[Red]\-#,##0.00\ \"$\"",
+                "P;P0%",
+                "P;P0.00%",
+                "P;P0.00E+00",
+                "P;P##0.0E+0",
+                "P;P#\ ?/?",
+                "P;P#\ ??/??",
+                "P;Pdd/mm/yyyy",
+                "P;Pdd\-mmm\-yy",
+                "P;Pdd\-mmm",
+                "P;Pmmm\-yy",
+                "P;Ph:mm\ AM/PM",
+                "P;Ph:mm:ss\ AM/PM",
+                "P;Ph:mm",
+                "P;Ph:mm:ss",
+                "P;Pdd/mm/yyyy\ h:mm",
+                "P;Pmm:ss",
+                "P;Pmm:ss.0",
+                "P;P@",
+                "P;P[h]:mm:ss",
+                "P;P_-* #,##0\ \"$\"_-;;\-* #,##0\ \"$\"_-;;_-* \"-\"\ \"$\"_-;;_-@_-",
+                "P;P_-* #,##0\ _(0_-;;\-* #,##0\ _(0_-;;_-* \"-\"\ _(0_-;;_-@_-",
+                "P;P_-* #,##0.00\ \"$\"_-;;\-* #,##0.00\ \"$\"_-;;_-* \"-\"??\ \"$\"_-;;_-@_-",
+                "P;P_-* #,##0.00\ _(0_-;;\-* #,##0.00\ _(0_-;;_-* \"-\"??\ _(0_-;;_-@_-",
+                "P;FCalibri;M220;L9",
+                "P;FCalibri;M220;L9",
+                "P;FCalibri;M220;L9",
+                "P;FCalibri;M220;L9",
+                "P;ECalibri;M220;L9",
+                "P;ECambria;M360;SB;L57",
+                "P;ECalibri;M300;SB;L57",
+                "P;ECalibri;M260;SB;L57",
+                "P;ECalibri;M220;SB;L57",
+                "P;ECalibri;M220;L18",
+                "P;ECalibri;M220;L21",
+                "P;ECalibri;M220;L61",
+                "P;ECalibri;M220;L63",
+                "P;ECalibri;M220;SB;L64",
+                "P;ECalibri;M220;SB;L53",
+                "P;ECalibri;M220;L53",
+                "P;ECalibri;M220;SB;L10",
+                "P;ECalibri;M220;L11",
+                "P;ECalibri;M220;SI;L24",
+                "P;ECalibri;M220;SB;L9",
+                "P;ECalibri;M220;L10",
+                "O;L;D;V0;K47;G100 0.001"
+                ]
+        foot = ["E"]
+        return "\r\n".join(head+[sylk(item) for item in self]+foot)+"\r\n"
 
     @property
     def Columns(self):
@@ -205,6 +277,11 @@ class Spreadsheet(list):
     def name(self):
         return self._name
 
+    @name.setter
+    def name(self, value):
+        self._name = value
+        #self.__xmlspreadsheet__
+
     def append(self, item):
         """
         Appends only Rows to Spreadsheet
@@ -226,7 +303,7 @@ class Spreadsheet(list):
         for item in items:
             self.append(item)
 
-    def subslice(self, start, stop):
+    def subslice(self, start, stop): #REDO
         final = list()
         for row_index in range(start.stop, stop.stop+1):
             row = list()
@@ -235,11 +312,11 @@ class Spreadsheet(list):
             final.append(row)
         if len(final) == 1:
             final = final[0]
-        return Spreadsheet(final)
+        return Range(final, start=start, stop=stop)
 
-    def range(self, range):
-        range = range.lower()
-        data = re.findall(r"^([a-z]+[0-9]+)(:[a-z]+[0-9]+)?$", range) #Range by cells
+    def range(self, _range):
+        _range = _range.lower()
+        data = re.findall(r"^([a-z]+[0-9]+)(:[a-z]+[0-9]+)?$", _range) #Range by cells
         if len(data) == 1:
             init, end = data[0]
             end = end.strip(":")
@@ -249,13 +326,13 @@ class Spreadsheet(list):
                 coords = get_coordinates_by_name(init)
                 return self[coords.stop][coords.start]
         elif len(data) == 0:
-            data = re.findall(r"^([a-z]+)(:[a-z]+)?$", range) #Range by columns
+            data = re.findall(r"^([a-z]+)(:[a-z]+)?$", _range) #Range by columns
             if len(data) == 1:
                 init, end = data[0]
                 end = end.strip(":")
                 return self.Columns[get_column_by_name(init):get_column_by_name(end)]
             elif len(data) == 0:
-                data = re.findall(r"^([0-9]+)(:[0-9]+)?$", range) #Range by Rows
+                data = re.findall(r"^([0-9]+)(:[0-9]+)?$", _range) #Range by Rows
                 if len(data) == 1:
                     init, end = data[0]
                     end = end.strip(":")
@@ -279,7 +356,7 @@ class Columns(Spreadsheet):
         return self._spreadsheet
 
     def __sylk__(self):
-        return
+        return "\r\n".join([sylk(item) for item in self])
 
     def __csv__(self):
         pass
@@ -321,9 +398,8 @@ class Rows(list):
             else:
                 raise TypeError("you can only assign an iterable")
 
-
     def __sylk__(self):
-        pass
+        return "\r\n".join([sylk(item) for item in self])
 
     def __csv__(self):
         pass
@@ -366,15 +442,16 @@ class Cell:
         object.__setattr__(self, "_coordinates", {"time": datetime.datetime.now() - \
                                                           datetime.timedelta(seconds=10),
                                                   "slice": None})
+        object.__setattr__(self, "_properties", dict()) #TODO
 
     def __getattribute__(self, item):
-        if item in ("coordinates", "spreadsheet", "value"):
+        if item in ("coordinates", "spreadsheet", "value", "__sylk__"):
             return object.__getattribute__(self, item)
         else:
             return object.__getattribute__(self, "_value").__getattribute__(item)
 
     def __str__(self):
-        return str(eval(self.__repr__()))
+        return str(eval(str(self.value.__repr__())))
 
     def __repr__(self):
         return str(self.value.__repr__())
@@ -387,8 +464,25 @@ class Cell:
 
     def __sylk__(self):
         value = object.__getattribute__(self, "_value")
-        if isinstance(value, dict) and "sylk" in value:
-            return value["sylk"]
+        if isinstance(value, _Relatives):
+            coords = value(self).coordinates
+            value = "ER{}C{}".format(coords.stop+1, coords.start+1)
+        elif isinstance(value, dict) and "sylk" in value:
+            value = value["sylk"]
+        else:
+            value = sylk(value)
+        if not value.startswith("E"):
+            value = "K"+value
+        start, stop = self.coordinates.start, self.coordinates.stop
+        if ";E" in value:
+            ov = value
+            value = re.sub(r"R([0-9]+)", lambda x: "R["+str(int(x.group(0)[1:])-stop-1)+"]", value)
+            value = re.sub(r"C([0-9]+)", lambda x: "C["+str(int(x.group(0)[1:])-start-1)+"]", value)
+            if ov != value:
+                value = value.replace("[0]", "")
+        return "C;Y{};X{};{}".format(stop+1, start+1, value.upper())
+        #if isinstance(value, dict) and "sylk" in value:
+        #    return value["sylk"]
 
     @property
     def coordinates(self):
@@ -419,7 +513,7 @@ class Cell:
             return object.__getattribute__(to_return(self), "_value")
         elif all([isinstance(to_return, typo) for typo in (Cell, dict)]):
             return eval(object.__getattribute__(to_return, "_value")["eval"])
-        elif isinstance(to_return, dict) and "eval" in to_return:
+        elif isinstance(to_return, dict) and "repr" in to_return:
             return eval(str(eval(to_return["repr"])))
         else:
             return to_return
@@ -461,14 +555,14 @@ class Function:
                             sheetname = sheetname != "" and sheetname or self.sheetname
                         final.append(Spreadsheet.sheets[str(sheetname)].range(cell))
                     else:
-                        data = re.findall(r"^([\W\w]+!)?([a-z]+(?::[a-z]+)?)$", arg)
+                        data = re.findall(r"^([\W\w]+!)?([a-z]+:[a-z]+)$", arg)
                         if len(data) == 1:
                             sheetname, cell = data[0]
                             if cell != "":
                                 sheetname = sheetname != "" and sheetname or self.sheetname
                             final.append(Spreadsheet.sheets[str(sheetname)].range(cell))
                         else:
-                            data = re.findall(r"^([\W\w]+!)?([0-9]+(?::[0-9]+)?)$", arg)
+                            data = re.findall(r"^([\W\w]+!)?([0-9]+:[0-9]+)$", arg)
                             if len(data) == 1:
                                 sheetname, cell = data[0]
                                 if cell != "":
@@ -485,10 +579,11 @@ class Function:
                                                                                 for key in self.kwargs]))
 
             def __sylk__(self):
-                return "{function}({args})".format(function = self.function, #TODO Verify semicolon in args
-                                                   args = "; ".join([sylk(arg) for arg in self.args]+
-                                                                    [key+"="+sylk(self.kwargs[key])
-                                                                     for key in self.kwargs]))
+                return "{};E{function}({args})".format(eval(str(self.__repr__())),
+                                                        function = self.function, #TODO Verify semicolon in args
+                                                        args = "; ".join([sylk(arg) for arg in self.args]+
+                                                                         [key+"="+sylk(self.kwargs[key])
+                                                                          for key in self.kwargs]))
         return callable(self.function, args, _sheetname=_sheetname, **kwargs)
 
     def __sylk__(self):
@@ -518,10 +613,11 @@ def verify(value, cell):
             for f in functions:
                 if f not in Spreadsheet.functions:
                     Spreadsheet.functions[f] = Function(f)
+                new_value = dict()
                 value = re.sub(r"([a-z_\.]+)\(",
                                lambda x: "Spreadsheet.functions[\"{}\"](".format(x.group(0).strip("(")),
                                value)
-                new_value = dict()
+
                 new_value["value"] = value
                 #repr = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)",
                 #              lambda x: "{}_sheetname={}).__repr__()".format(x.group(0)[-1], sheetname),
@@ -529,9 +625,10 @@ def verify(value, cell):
                 #print(repr)
                 repr = value.replace("(", "(\"\"\"").replace(")", "\"\"\", _sheetname={})".format(sheetname))
                 new_value["repr"] = repr
-                new_value["sylk"] = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)",
-                                           lambda x: "sylk("+x.group(0)+")",
-                                           value)
+                #new_value["sylk"] = re.sub(r"Spreadsheet.functions\[[\w\W]+]\]\([\w\W]+\)",
+                #                           lambda x: "sylk("+x.group(0)+")",
+                #                           value)
+                new_value["sylk"] = sylk(eval(repr))
                 try:
                     new_value["eval"] = str(eval(repr))
                 except SyntaxError:
